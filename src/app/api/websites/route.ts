@@ -4,6 +4,19 @@ import { admin } from "@/lib/supabase-admin";
 
 export const runtime = "nodejs";
 
+const DEFAULT_WIDGET = {
+  theme: "light",
+  position: "right",
+  primaryColor: "#635bff",
+  widgetTitle: "Customer Support",
+  buttonText: "Chat with us",
+  welcomeMessage: "Halo! Ada yang bisa kami bantu?",
+  width: 380,
+  height: 540,
+  borderRadius: 16,
+  showBranding: true
+};
+
 async function authorize(req: NextRequest) {
   const auth = req.headers.get("authorization");
   const token = auth?.startsWith("Bearer ") ? auth.slice(7) : "";
@@ -104,6 +117,164 @@ function normalizeDomainList(value: unknown): string[] {
   return [...new Set(domains)];
 }
 
+function normalizeWidgetConfig(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("Konfigurasi widget tidak valid.");
+  }
+
+  const input = value as Record<string, unknown>;
+  const config = { ...DEFAULT_WIDGET };
+
+  if (input.theme !== undefined) {
+    const theme = String(input.theme);
+    if (!["light", "dark", "auto"].includes(theme)) {
+      throw new Error("Tema widget tidak valid.");
+    }
+    config.theme = theme;
+  }
+
+  if (input.position !== undefined) {
+    const position = String(input.position);
+    if (!["left", "right"].includes(position)) {
+      throw new Error("Posisi widget tidak valid.");
+    }
+    config.position = position;
+  }
+
+  if (input.primaryColor !== undefined) {
+    const color = String(input.primaryColor);
+    if (!/^#[0-9a-fA-F]{6}$/.test(color)) {
+      throw new Error("Format warna harus HEX, contoh #635bff.");
+    }
+    config.primaryColor = color;
+  }
+
+  const textFields = [
+    "widgetTitle",
+    "buttonText",
+    "welcomeMessage"
+  ] as const;
+
+  for (const field of textFields) {
+    if (input[field] !== undefined) {
+      const text = String(input[field]).trim();
+      if (!text || text.length > 150) {
+        throw new Error(`${field} tidak boleh kosong atau terlalu panjang.`);
+      }
+      config[field] = text;
+    }
+  }
+
+  if (input.width !== undefined) {
+    const width = Number(input.width);
+    if (!Number.isFinite(width) || width < 280 || width > 600) {
+      throw new Error("Lebar widget harus antara 280 sampai 600 px.");
+    }
+    config.width = width;
+  }
+
+  if (input.height !== undefined) {
+    const height = Number(input.height);
+    if (!Number.isFinite(height) || height < 350 || height > 800) {
+      throw new Error("Tinggi widget harus antara 350 sampai 800 px.");
+    }
+    config.height = height;
+  }
+
+  if (input.borderRadius !== undefined) {
+    const radius = Number(input.borderRadius);
+    if (!Number.isFinite(radius) || radius < 0 || radius > 40) {
+      throw new Error("Border radius harus antara 0 sampai 40.");
+    }
+    config.borderRadius = radius;
+  }
+
+  if (input.showBranding !== undefined) {
+    config.showBranding = Boolean(input.showBranding);
+  }
+
+  return config;
+}
+
+async function saveAgent(websiteId: string, value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("Profil agent tidak valid.");
+  }
+
+  const input = value as Record<string, unknown>;
+
+  const name = String(input.name || "").trim();
+  const description = String(input.description || "").trim();
+  const greeting = String(input.greeting || "").trim();
+  const avatarUrl = String(input.avatar_url || "").trim();
+
+  if (!name || name.length > 100) {
+    throw new Error("Nama agent wajib diisi, maksimal 100 karakter.");
+  }
+
+  if (description.length > 500) {
+    throw new Error("Deskripsi agent maksimal 500 karakter.");
+  }
+
+  if (!greeting || greeting.length > 500) {
+    throw new Error("Greeting agent wajib diisi, maksimal 500 karakter.");
+  }
+
+  if (
+    avatarUrl &&
+    (!/^https:\/\//i.test(avatarUrl) || avatarUrl.length > 1000)
+  ) {
+    throw new Error("URL avatar harus menggunakan HTTPS.");
+  }
+
+  const { data: existing, error: findError } = await admin
+    .from("ai_agents")
+    .select("id")
+    .eq("website_id", websiteId)
+    .limit(1)
+    .maybeSingle();
+
+  if (findError) throw findError;
+
+  const agentData = {
+    name,
+    description: description || null,
+    greeting,
+    avatar_url: avatarUrl || null,
+    enabled: input.enabled === undefined ? true : Boolean(input.enabled)
+  };
+
+  if (existing) {
+    const { error } = await admin
+      .from("ai_agents")
+      .update(agentData)
+      .eq("id", existing.id);
+
+    if (error) throw error;
+  } else {
+    const { data: website, error: websiteError } = await admin
+      .from("websites")
+      .select("workspace_id")
+      .eq("id", websiteId)
+      .single();
+
+    if (websiteError || !website) {
+      throw new Error("Workspace website tidak ditemukan.");
+    }
+
+    const { error } = await admin
+      .from("ai_agents")
+      .insert({
+        ...agentData,
+        website_id: websiteId,
+        workspace_id: website.workspace_id,
+        model: "gemini-3.5-flash-lite"
+      });
+
+    if (error) throw error;
+  }
+}
+
 export async function GET(req: NextRequest) {
   try {
     const workspaceIds = await authorize(req);
@@ -116,7 +287,32 @@ export async function GET(req: NextRequest) {
 
     if (error) throw error;
 
-    return NextResponse.json({ websites: data || [] });
+    const websites = data || [];
+    const websiteIds = websites.map((site) => site.id);
+
+    let agents: Record<string, unknown>[] = [];
+
+    if (websiteIds.length) {
+      const { data: agentData, error: agentError } = await admin
+        .from("ai_agents")
+        .select("id, website_id, name, avatar_url, description, greeting, enabled")
+        .in("website_id", websiteIds);
+
+      if (agentError) throw agentError;
+      agents = (agentData || []) as Record<string, unknown>[];
+    }
+
+    const result = websites.map((site) => ({
+      ...site,
+      widget_config: {
+        ...DEFAULT_WIDGET,
+        ...(site.widget_config || {})
+      },
+      agent:
+        agents.find((agent) => agent.website_id === site.id) || null
+    }));
+
+    return NextResponse.json({ websites: result });
   } catch (error) {
     return fail(error);
   }
@@ -140,6 +336,7 @@ export async function POST(req: NextRequest) {
         domain,
         allowed_domains: [domain],
         enabled: true,
+        widget_config: DEFAULT_WIDGET
       })
       .select("*")
       .single();
@@ -159,6 +356,17 @@ export async function PATCH(req: NextRequest) {
 
     if (!body.id) throw new Error("ID website wajib diisi.");
 
+    const { data: current, error: currentError } = await admin
+      .from("websites")
+      .select("id, domain, allowed_domains, widget_config")
+      .eq("id", body.id)
+      .in("workspace_id", workspaceIds)
+      .maybeSingle();
+
+    if (currentError || !current) {
+      throw new Error("Website tidak ditemukan atau akses ditolak.");
+    }
+
     const updates: Record<string, unknown> = {};
 
     if (body.name !== undefined) {
@@ -168,55 +376,60 @@ export async function PATCH(req: NextRequest) {
     }
 
     if (body.domain !== undefined) {
-      updates.domain = normalizeDomain(String(body.domain));
+      const domain = normalizeDomain(String(body.domain));
+      updates.domain = domain;
+
+      const oldDomains = Array.isArray(current.allowed_domains)
+        ? current.allowed_domains
+        : [];
+
+      updates.allowed_domains = [
+        ...new Set([
+          ...oldDomains,
+          domain
+        ])
+      ];
     }
 
     if (body.allowed_domains !== undefined) {
-      updates.allowed_domains = normalizeDomainList(
-        body.allowed_domains
-      );
+      const domains = normalizeDomainList(body.allowed_domains);
+      const primaryDomain = String(updates.domain || current.domain);
+
+      updates.allowed_domains = [
+        ...new Set([...domains, primaryDomain])
+      ];
     }
 
     if (body.enabled !== undefined) {
       updates.enabled = Boolean(body.enabled);
     }
 
-    if (!Object.keys(updates).length) {
+    if (body.widget_config !== undefined) {
+      updates.widget_config = normalizeWidgetConfig(body.widget_config);
+    }
+
+    if (!Object.keys(updates).length && body.agent === undefined) {
       throw new Error("Tidak ada data yang diperbarui.");
     }
 
-    const { data: current, error: currentError } = await admin
-      .from("websites")
-      .select("id,domain")
-      .eq("id", body.id)
-      .in("workspace_id", workspaceIds)
-      .single();
+    if (Object.keys(updates).length) {
+      const { error } = await admin
+        .from("websites")
+        .update(updates)
+        .eq("id", body.id)
+        .in("workspace_id", workspaceIds);
 
-    if (currentError || !current) {
-      throw new Error("Website tidak ditemukan atau akses ditolak.");
+      if (error) throw error;
     }
 
-    if (updates.allowed_domains) {
-      const domains = updates.allowed_domains as string[];
-      const primaryDomain = String(
-        updates.domain || current.domain
-      );
-
-      if (!domains.includes(primaryDomain)) {
-        domains.push(primaryDomain);
-      }
-
-      updates.allowed_domains = [...new Set(domains)];
-    } else if (updates.domain) {
-      updates.allowed_domains = [updates.domain];
+    if (body.agent !== undefined) {
+      await saveAgent(body.id, body.agent);
     }
 
     const { data, error } = await admin
       .from("websites")
-      .update(updates)
-      .eq("id", body.id)
-      .in("workspace_id", workspaceIds)
       .select("*")
+      .eq("id", body.id)
       .single();
 
     if (error) throw error;

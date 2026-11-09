@@ -44,9 +44,9 @@ async function handlePost(req: Request) {
 
   const { data: site, error } = await admin
     .from("websites")
-    .select("id, allowed_domains, enabled")
+    .select("id, name, allowed_domains, enabled, widget_config")
     .eq("site_key", b.site_key)
-    .single();
+    .maybeSingle();
 
   if (error || !site || !site.enabled) {
     return fail("Website key tidak valid.", 403);
@@ -66,6 +66,14 @@ async function handlePost(req: Request) {
   ) {
     return fail("Origin website tidak diizinkan.", 403);
   }
+
+  const { data: agent } = await admin
+    .from("ai_agents")
+    .select("id, name, avatar_url, description, greeting, enabled")
+    .eq("website_id", site.id)
+    .eq("enabled", true)
+    .limit(1)
+    .maybeSingle();
 
   const { data: visitor, error: visitorError } = await admin
     .from("visitors")
@@ -103,7 +111,12 @@ async function handlePost(req: Request) {
   return NextResponse.json({
     ok: true,
     session,
-    token
+    token,
+    website: {
+      name: site.name,
+      widget_config: site.widget_config || {}
+    },
+    agent: agent || null
   });
 }
 
