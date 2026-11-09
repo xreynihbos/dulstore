@@ -1,4 +1,5 @@
-﻿"use client";
+﻿
+"use client";
 
 import { useEffect, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase-browser";
@@ -18,7 +19,9 @@ export default function WebsitesManager() {
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState("");
   const [domain, setDomain] = useState("");
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
 
   async function request(url: string, options: RequestInit = {}) {
     const { data } = await supabaseBrowser().auth.getSession();
@@ -50,7 +53,17 @@ export default function WebsitesManager() {
 
     try {
       const result = await request("/api/websites");
-      setWebsites(result.websites || []);
+      const list: Website[] = result.websites || [];
+
+      setWebsites(list);
+
+      const nextDrafts: Record<string, string> = {};
+
+      list.forEach((site) => {
+        nextDrafts[site.id] = (site.allowed_domains || []).join("\n");
+      });
+
+      setDrafts(nextDrafts);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal memuat website.");
     } finally {
@@ -66,6 +79,7 @@ export default function WebsitesManager() {
     e.preventDefault();
     setSaving(true);
     setError("");
+    setNotice("");
 
     try {
       await request("/api/websites", {
@@ -75,6 +89,7 @@ export default function WebsitesManager() {
 
       setName("");
       setDomain("");
+      setNotice("Website berhasil ditambahkan.");
       await loadWebsites();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal menambahkan website.");
@@ -83,7 +98,37 @@ export default function WebsitesManager() {
     }
   }
 
+  async function saveDomains(site: Website) {
+    setSaving(true);
+    setError("");
+    setNotice("");
+
+    try {
+      const domains = (drafts[site.id] || "")
+        .split(/[\n,]+/)
+        .map((item) => item.trim())
+        .filter(Boolean);
+
+      await request("/api/websites", {
+        method: "PATCH",
+        body: JSON.stringify({
+          id: site.id,
+          allowed_domains: domains,
+        }),
+      });
+
+      setNotice("Daftar domain berhasil diperbarui.");
+      await loadWebsites();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal menyimpan domain.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function toggleWebsite(site: Website) {
+    setError("");
+
     try {
       await request("/api/websites", {
         method: "PATCH",
@@ -93,6 +138,7 @@ export default function WebsitesManager() {
         }),
       });
 
+      setNotice("Status website berhasil diperbarui.");
       await loadWebsites();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal mengubah status.");
@@ -108,32 +154,41 @@ export default function WebsitesManager() {
         body: JSON.stringify({ id: site.id }),
       });
 
+      setNotice("Website berhasil dihapus.");
       await loadWebsites();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal menghapus website.");
     }
   }
 
-  function copyScript(site: Website) {
+  async function copyScript(site: Website) {
+    const base = window.location.origin;
+
     const script = `<script>
 window.DulstoreChat = {
   siteKey: "${site.site_key}",
-  apiBase: "${window.location.origin}",
+  apiBase: "${base}",
   position: "right",
   primaryColor: "#635bff"
 };
 </script>
-<script async src="${window.location.origin}/widget.js"></script>`;
+<script async src="${base}/widget.js"></script>`;
 
-    navigator.clipboard.writeText(script);
-    alert("Installation script berhasil disalin.");
+    try {
+      await navigator.clipboard.writeText(script);
+      setNotice("Installation script berhasil disalin.");
+    } catch {
+      setError("Gagal menyalin. Periksa izin clipboard browser.");
+    }
   }
 
   return (
     <section className="website-manager">
       <form onSubmit={addWebsite} className="card">
         <h2>Tambah Website</h2>
-        <p>Daftarkan domain untuk memasang widget livechat DULSTORE.</p>
+        <p>
+          Daftarkan website baru. Setiap website mendapatkan Site Key unik.
+        </p>
 
         <input
           value={name}
@@ -155,6 +210,7 @@ window.DulstoreChat = {
       </form>
 
       {error && <p style={{ color: "#ef4444" }}>{error}</p>}
+      {notice && <p style={{ color: "#10b981" }}>{notice}</p>}
 
       <div className="card">
         <h2>Website Terdaftar</h2>
@@ -175,10 +231,51 @@ window.DulstoreChat = {
               }}
             >
               <h3>{site.name}</h3>
-              <p>{site.domain}</p>
+
               <p>
-                Status: {site.enabled ? "Aktif" : "Nonaktif"}
+                Domain utama: <strong>{site.domain}</strong>
               </p>
+
+              <p>
+                Status:{" "}
+                <strong style={{ color: site.enabled ? "#10b981" : "#ef4444" }}>
+                  {site.enabled ? "Aktif" : "Nonaktif"}
+                </strong>
+              </p>
+
+              <p>Domain yang diizinkan:</p>
+
+              <textarea
+                value={drafts[site.id] || ""}
+                onChange={(e) =>
+                  setDrafts((old) => ({
+                    ...old,
+                    [site.id]: e.target.value,
+                  }))
+                }
+                placeholder={"contoh.com\nwww.contoh.com\nsub.contoh.com"}
+                rows={4}
+                style={{
+                  width: "100%",
+                  padding: 12,
+                  borderRadius: 8,
+                  resize: "vertical",
+                }}
+              />
+
+              <p style={{ fontSize: 12, opacity: 0.7 }}>
+                Masukkan satu domain per baris. Bisa juga dipisahkan dengan koma.
+              </p>
+
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => saveDomains(site)}
+              >
+                Simpan Domain
+              </button>
+
+              <hr style={{ margin: "16px 0", opacity: 0.2 }} />
 
               <p style={{ wordBreak: "break-all" }}>
                 Site Key: {site.site_key}
@@ -202,6 +299,3 @@ window.DulstoreChat = {
     </section>
   );
 }
-
-
-
