@@ -279,7 +279,7 @@ export default function WebsitesManager() {
   }
 
   async function copyScript(site: Website) {
-    const base = window.location.origin;
+      const base = "https://dulstore-khaki.vercel.app";
 
     const script = `<script>
 window.DulstoreChat = {
