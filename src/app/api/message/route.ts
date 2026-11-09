@@ -1,8 +1,9 @@
 import {NextResponse} from "next/server";
+import { withCors, corsOptions } from "@/lib/cors";
 import {admin} from "@/lib/supabase-admin";
 import {bodyJson,fail,sha256} from "@/lib/http";
 import {geminiReply} from "@/lib/gemini";
-export async function POST(req:Request){
+async function handlePost(req:Request){
  const b=await bodyJson(req);const id=String(b.session_id||""),message=String(b.message||"").trim(),token=req.headers.get("authorization")?.replace(/^Bearer /i,"")||"";
  if(!id||!token||!message||message.length>5000)return fail("Sesi, token, dan pesan wajib diisi.",422);
  const {data:s}=await admin.from("chat_sessions").select("id,website_id,ai_active,session_secret_hash").eq("id",id).single();
@@ -20,4 +21,12 @@ export async function POST(req:Request){
   }
  }
  return NextResponse.json({ok:true,reply});
+}
+
+export async function POST(req: Request) {
+  return withCors(req, await handlePost(req));
+}
+
+export async function OPTIONS(req: Request) {
+  return corsOptions(req);
 }
