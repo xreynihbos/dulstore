@@ -206,8 +206,10 @@
       `${Math.min(600, Math.max(280, Number(config.width) || 380))}px`);
     panel.style.setProperty("--dul-height",
       `${Math.min(800, Math.max(350, Number(config.height) || 540))}px`);
-    panel.style.setProperty("--dul-radius",
-      `${Math.min(40, Math.max(0, Number(config.borderRadius) || 16)}px`);
+    panel.style.setProperty(
+  "--dul-radius",
+  `${Math.min(40, Math.max(0, Number(config.borderRadius) || 16))}px`
+);
 
     panel.style.setProperty("--dul-bg", dark ? "#171923" : "#ffffff");
     panel.style.setProperty("--dul-text", dark ? "#f5f5f5" : "#202436");
