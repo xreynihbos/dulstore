@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server";
 import { admin } from "@/lib/supabase-admin";
 import { bodyJson, fail, randomToken, sha256 } from "@/lib/http";
+import { withCors, corsOptions } from "@/lib/cors";
 
 export const runtime = "nodejs";
 
@@ -34,7 +35,7 @@ function normalizeAllowedHost(value: string): string {
   }
 }
 
-export async function POST(req: Request) {
+async function handlePost(req: Request) {
   const b = await bodyJson(req);
 
   if (!b.site_key) {
@@ -104,4 +105,12 @@ export async function POST(req: Request) {
     session,
     token
   });
+}
+
+export async function POST(req: Request) {
+  return withCors(req, await handlePost(req));
+}
+
+export async function OPTIONS(req: Request) {
+  return corsOptions(req);
 }
