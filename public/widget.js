@@ -153,18 +153,18 @@
     </header>
     <div id="dul-log"></div>
     <div id="dul-status"></div>
-    <div id="dul-recording">● Merekam voice note...</div>
+    <div id="dul-recording">â— Merekam voice note...</div>
     <form id="dul-compose">
       <input id="dul-file" type="file"
         accept="image/jpeg,image/png,image/webp">
       <button class="dul-tool" id="dul-photo" type="button"
-        title="Lampirkan foto">＋</button>
+        title="Lampirkan foto">ï¼‹</button>
       <button class="dul-tool" id="dul-mic" type="button"
-        title="Rekam voice note">🎙</button>
+        title="Rekam voice note">ðŸŽ™</button>
       <input id="dul-message" type="text"
         placeholder="Tulis pesan..." maxlength="5000"
         autocomplete="off">
-      <button id="dul-send" type="submit">➤</button>
+      <button id="dul-send" type="submit">âž¤</button>
     </form>
     <div id="dul-brand">Powered by Dulstore</div>
   `;
@@ -364,12 +364,34 @@
     setStatus("");
   }
 
+  let historyPolling = null;
+  let historyPollBusy = false;
+
   async function openChat() {
     panel.style.display = "block";
     launch.style.display = "none";
 
     try {
       await startSession();
+
+      if (!historyPolling) {
+        historyPolling = window.setInterval(async () => {
+          if (
+            panel.style.display === "none" ||
+            !sid ||
+            !token ||
+            historyPollBusy
+          ) return;
+
+          historyPollBusy = true;
+
+          try {
+            await refreshHistory();
+          } finally {
+            historyPollBusy = false;
+          }
+        }, 2500);
+      }
     } catch (error) {
       console.error("Dulstore session:", error);
       setStatus(error.message || "Koneksi chat belum tersedia.");
@@ -421,6 +443,11 @@
   $("#dul-close").addEventListener("click", () => {
     panel.style.display = "none";
     launch.style.display = "block";
+
+    if (historyPolling) {
+      window.clearInterval(historyPolling);
+      historyPolling = null;
+    }
   });
 
   $("#dul-compose").addEventListener("submit", async (event) => {
@@ -501,7 +528,7 @@
         recordingStream = null;
 
         $("#dul-recording").style.display = "none";
-        micButton.textContent = "🎙";
+        micButton.textContent = "ðŸŽ™";
 
         if (audioFile.size > 10 * 1024 * 1024) {
           setStatus("Voice note melebihi batas 10 MB.");
@@ -513,7 +540,7 @@
 
       mediaRecorder.start();
       $("#dul-recording").style.display = "block";
-      micButton.textContent = "■";
+      micButton.textContent = "â– ";
       setStatus("Tekan tombol rekam lagi untuk berhenti.");
     } catch (error) {
       console.error("Microphone error:", error);
