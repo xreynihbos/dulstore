@@ -1,82 +1,143 @@
-﻿'use client';
+'use client';
 
 import { useEffect, useState } from "react";
+import type { FormEvent } from "react";
 import { supabaseBrowser } from "@/lib/supabase-browser";
 import WebsitesManager from "@/components/websites-manager";
+import ConversationsInbox from "@/components/conversations-inbox";
 
 const menus = [
-  { group: "WORKSPACE", items: [
-    { id: "overview", label: "Overview", icon: "OV" },
-    { id: "conversations", label: "Conversations", icon: "CH" },
-    { id: "customers", label: "Customers", icon: "CU" }
-  ]},
-  { group: "MANAGEMENT", items: [
-    { id: "ai-agents", label: "AI Agents", icon: "AI" },
-    { id: "human-agents", label: "Human Agents", icon: "AG" },
-    { id: "websites", label: "Websites", icon: "WB" },
-    { id: "integrations", label: "Integrations", icon: "IN" }
-  ]},
-  { group: "INSIGHTS", items: [
-    { id: "analytics", label: "Analytics", icon: "AN" },
-    { id: "settings", label: "Settings", icon: "ST" }
-  ]}
+  {
+    group: "WORKSPACE",
+    items: [
+      { id: "overview", label: "Overview", icon: "OV" },
+      { id: "conversations", label: "Conversations", icon: "CH" },
+      { id: "customers", label: "Customers", icon: "CU" },
+    ],
+  },
+  {
+    group: "MANAGEMENT",
+    items: [
+      { id: "ai-agents", label: "AI Agents", icon: "AI" },
+      { id: "human-agents", label: "Human Agents", icon: "TM" },
+      { id: "websites", label: "Websites", icon: "WB" },
+      { id: "integrations", label: "Integrations", icon: "IN" },
+      { id: "widget", label: "Chat Widget", icon: "WI" },
+    ],
+  },
+  {
+    group: "ACTIVITY",
+    items: [
+      { id: "traffic", label: "Traffic", icon: "TR" },
+      { id: "archives", label: "Archives", icon: "AR" },
+      { id: "tickets", label: "Tickets", icon: "TK" },
+    ],
+  },
+  {
+    group: "INSIGHTS",
+    items: [
+      { id: "analytics", label: "Analytics", icon: "AN" },
+      { id: "reports", label: "Reports", icon: "RP" },
+    ],
+  },
+  {
+    group: "PREFERENCES",
+    items: [
+      { id: "settings", label: "Settings", icon: "ST" },
+    ],
+  },
 ];
 
-const pageInfo: Record<string, { title: string; description: string; heading: string; detail: string }> = {
+const pageInfo: Record<string, {
+  title: string;
+  description: string;
+  heading: string;
+  detail: string;
+}> = {
   overview: {
     title: "Overview",
-    description: "Manage every customer conversation from one place.",
-    heading: "Welcome to Dulstore",
-    detail: "Your cloud livechat workspace is ready for configuration."
+    description: "Monitor your customer support performance from one place.",
+    heading: "Welcome to DULSTORE",
+    detail: "Your customer support workspace.",
   },
   conversations: {
     title: "Conversations",
-    description: "Manage all customer conversations in one inbox.",
+    description: "Manage customer conversations across all connected websites.",
     heading: "Conversation Inbox",
-    detail: "Percakapan pengunjung akan muncul di sini setelah website widget terhubung."
+    detail: "All customer conversations in one place.",
   },
   customers: {
     title: "Customers",
-    description: "View and manage your website visitors.",
+    description: "Understand your visitors and their conversation history.",
     heading: "Customer Directory",
-    detail: "Data pengunjung, nama, email, dan riwayat percakapan akan ditampilkan di sini."
+    detail: "Customer profiles, visitor information, and conversation history.",
   },
   "ai-agents": {
     title: "AI Agents",
-    description: "Configure your Gemini-powered customer support agents.",
+    description: "Configure your AI-powered customer support.",
     heading: "AI Agent Management",
-    detail: "Atur nama AI, instruksi, model Gemini, dan perilaku otomatis customer support."
+    detail: "Manage AI instructions, model settings, and automated support behavior.",
   },
   "human-agents": {
     title: "Human Agents",
     description: "Manage your customer support team.",
     heading: "Support Team",
-    detail: "Kelola operator, akses anggota, dan status online tim support."
+    detail: "Manage operators, team access, and support availability.",
   },
   websites: {
     title: "Websites",
-    description: "Connect multiple websites to your DULSTORE workspace.",
+    description: "Connect and manage multiple websites.",
     heading: "Website Manager",
-    detail: "Daftarkan website, atur domain yang diizinkan, dan buat Site Key untuk widget."
+    detail: "Manage domains, website access, and widget site keys.",
   },
   integrations: {
     title: "Integrations",
-    description: "Connect external messaging channels.",
+    description: "Connect your customer communication channels.",
     heading: "Channel Integrations",
-    detail: "Hubungkan WhatsApp, Telegram, dan kanal komunikasi lainnya."
+    detail: "Manage connections to external messaging platforms.",
+  },
+  widget: {
+    title: "Chat Widget",
+    description: "Customize the live chat experience on your website.",
+    heading: "Website Chat Widget",
+    detail: "Widget appearance, welcome messages, and installation settings.",
+  },
+  traffic: {
+    title: "Traffic",
+    description: "Explore visitor activity across your websites.",
+    heading: "Visitor Traffic",
+    detail: "Monitor website visitors, active sessions, and visitor activity.",
+  },
+  archives: {
+    title: "Archives",
+    description: "Review completed customer conversations.",
+    heading: "Conversation Archives",
+    detail: "Completed and archived conversations will be available here.",
+  },
+  tickets: {
+    title: "Tickets",
+    description: "Track customer requests that need follow-up.",
+    heading: "Support Tickets",
+    detail: "Organize customer issues and follow-up requests.",
   },
   analytics: {
     title: "Analytics",
-    description: "Track your customer support performance.",
+    description: "Understand your customer support performance.",
     heading: "Support Analytics",
-    detail: "Pantau jumlah percakapan, pengunjung, waktu respons, dan penyelesaian oleh AI."
+    detail: "Monitor conversations, response times, and support performance.",
+  },
+  reports: {
+    title: "Reports",
+    description: "Review reports from your support workspace.",
+    heading: "Workspace Reports",
+    detail: "Performance summaries and operational reports.",
   },
   settings: {
     title: "Settings",
     description: "Configure your workspace preferences.",
     heading: "Workspace Settings",
-    detail: "Atur nama workspace, profil admin, keamanan, dan preferensi sistem."
-  }
+    detail: "Manage workspace preferences, administrator profile, and security.",
+  },
 };
 
 export default function Home() {
@@ -96,7 +157,7 @@ export default function Home() {
     });
   }, []);
 
-  async function login(e: React.FormEvent) {
+  async function login(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const { error } = await sb.auth.signInWithPassword({ email, password });
     setMsg(error?.message || "Login berhasil.");
@@ -114,47 +175,73 @@ export default function Home() {
       <aside>
         <div className="brand">
           <b>d</b>
-          <span>DULSTORE<small>LIVECHAT CLOUD</small></span>
+          <span>
+            DULSTORE
+            <small>LIVECHAT CLOUD</small>
+          </span>
         </div>
 
         <div className="workspace">
-          WORKSPACE
-          <strong>Dulstore Main</strong>
+          <span className="workspace-label">CURRENT WORKSPACE</span>
+          <strong>
+            <i className="workspace-dot" />
+            Dulstore Main
+          </strong>
         </div>
 
         <nav>
           {menus.map((group) => (
-            <div key={group.group}>
+            <div className="nav-group" key={group.group}>
               <label>{group.group}</label>
               {group.items.map((item) => (
                 <a
                   key={item.id}
                   href={"#" + item.id}
                   className={page === item.id ? "active" : ""}
+                  title={item.label}
                   onClick={(e) => {
                     e.preventDefault();
                     setPage(item.id);
                   }}
                 >
-                  {item.icon} {item.label}
+                  <span className="nav-icon">{item.icon}</span>
+                  <span className="nav-label">{item.label}</span>
+                  {item.id === "conversations" && (
+                    <span className="nav-indicator" />
+                  )}
                 </a>
               ))}
             </div>
           ))}
         </nav>
 
-        <footer>
-          * Cloud workspace<br />
-          <small>Multi-website support</small>
+        <footer className="sidebar-footer">
+          <span className="footer-status" />
+          <span>
+            Cloud workspace
+            <small>Multi-website support</small>
+          </span>
         </footer>
       </aside>
 
       <section className="main">
         <header>
-          <span>Workspace / {current.title}</span>
-          <button onClick={() => setDark(!dark)}>
-            {dark ? "☀ Light mode" : "* Dark mode"}
-          </button>
+          <div className="header-left">
+            <span className="breadcrumb-muted">Workspace</span>
+            <span className="breadcrumb-divider">/</span>
+            <strong>{current.title}</strong>
+          </div>
+
+          <div className="header-actions">
+            {user && <span className="user-chip">{user}</span>}
+            <button
+              className="theme-toggle"
+              onClick={() => setDark(!dark)}
+              type="button"
+            >
+              {dark ? "☀ Light mode" : "☾ Dark mode"}
+            </button>
+          </div>
         </header>
 
         <div className="content">
@@ -162,28 +249,39 @@ export default function Home() {
             <>
               <div className="welcome">
                 <div>
-                  <small>YOUR CUSTOMER SUPPORT OVERVIEW</small>
+                  <small className="eyebrow">YOUR CUSTOMER SUPPORT OVERVIEW</small>
                   <h1>Good day, Admin.</h1>
-                  <p>Manage every customer conversation from one place.</p>
+                  <p>Here is what is happening in your workspace today.</p>
                 </div>
-                <span className="pill">* CLOUD READY</span>
+                <span className="pill">● CLOUD READY</span>
               </div>
 
               <div className="stats">
-                {["Active conversations", "Online agents", "AI resolution rate", "Visitors today"].map((x) => (
-                  <article key={x}>
-                    <span>{x}</span>
-                    <b>-</b>
-                    <small>Connect your workspace to load live data</small>
+                {[
+                  ["Active conversations", "—", "Across all websites"],
+                  ["Online agents", "—", "Support team availability"],
+                  ["AI resolution rate", "—", "Automated conversations"],
+                  ["Visitors today", "—", "Website visitor activity"],
+                ].map(([label, value, description]) => (
+                  <article key={label}>
+                    <span>{label}</span>
+                    <b>{value}</b>
+                    <small>{description}</small>
                   </article>
                 ))}
               </div>
 
               <div className="grid">
                 <article className="panel">
-                  <h2>Welcome to Dulstore</h2>
-                  <p>Your cloud livechat workspace is ready for configuration.</p>
-                  <ol>
+                  <div className="panel-heading">
+                    <div>
+                      <small className="eyebrow">GETTING STARTED</small>
+                      <h2>Welcome to DULSTORE</h2>
+                    </div>
+                    <span className="panel-icon">DS</span>
+                  </div>
+                  <p>Your customer support workspace is ready to be configured.</p>
+                  <ol className="setup-list">
                     <li>Create your Supabase project.</li>
                     <li>Run the database schema.</li>
                     <li>Create your first workspace and website.</li>
@@ -193,18 +291,25 @@ export default function Home() {
                 </article>
 
                 <article className="panel">
-                  <h2>Admin access</h2>
+                  <div className="panel-heading">
+                    <div>
+                      <small className="eyebrow">ACCOUNT</small>
+                      <h2>Admin access</h2>
+                    </div>
+                    <span className="panel-icon">AD</span>
+                  </div>
+
                   {user ? (
                     <>
                       <p>Signed in as <b>{user}</b></p>
-                      <button onClick={logout}>Sign out</button>
+                      <button onClick={logout} type="button">Sign out</button>
                     </>
                   ) : (
                     <form onSubmit={login}>
                       <p>Sign in with your Supabase Auth account.</p>
                       <input
                         type="email"
-                        placeholder="Email"
+                        placeholder="Email address"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         required
@@ -219,63 +324,72 @@ export default function Home() {
                       <button type="submit">Sign in</button>
                     </form>
                   )}
-                  {msg && <small>{msg}</small>}
+                  {msg && <small className="auth-message">{msg}</small>}
                 </article>
               </div>
+            </>
+          ) : page === "conversations" ? (
+            <>
+              <div className="welcome">
+                <div>
+                  <small className="eyebrow">CUSTOMER SUPPORT</small>
+                  <h1>Conversation Inbox</h1>
+                  <p>{current.description}</p>
+                </div>
+                <span className="pill">● LIVE INBOX</span>
+              </div>
+              <ConversationsInbox />
             </>
           ) : page === "websites" ? (
             <>
               <div className="welcome">
                 <div>
-                  <small>DULSTORE WORKSPACE MANAGEMENT</small>
+                  <small className="eyebrow">WORKSPACE MANAGEMENT</small>
                   <h1>Website Manager</h1>
-                  <p>Manage your connected websites and livechat widgets.</p>
+                  <p>{current.description}</p>
                 </div>
-                <span className="pill">CLOUD READY</span>
+                <span className="pill">● CLOUD READY</span>
               </div>
-
               <WebsitesManager />
             </>
           ) : (
             <>
               <div className="welcome">
                 <div>
-                  <small>DULSTORE WORKSPACE MANAGEMENT</small>
+                  <small className="eyebrow">DULSTORE WORKSPACE</small>
                   <h1>{current.title}</h1>
                   <p>{current.description}</p>
                 </div>
-                <span className="pill">* CLOUD READY</span>
+                <span className="pill">WORKSPACE MODULE</span>
               </div>
 
-              <article className="panel" style={{ marginTop: 30, minHeight: 260 }}>
-                <h2>{current.heading}</h2>
+              <article className="panel module-panel">
+                <div className="panel-heading">
+                  <div>
+                    <small className="eyebrow">MODULE OVERVIEW</small>
+                    <h2>{current.heading}</h2>
+                  </div>
+                  <span className="panel-icon">DS</span>
+                </div>
                 <p>{current.detail}</p>
-
-                <div style={{
-                  marginTop: 35,
-                  padding: 25,
-                  border: "1px dashed #aab2c5",
-                  borderRadius: 12,
-                  textAlign: "center"
-                }}>
-                  <h2 style={{ fontSize: 17 }}>Workspace module</h2>
-                  <p style={{ fontSize: 13 }}>
-                    Halaman {current.title} berhasil dibuka.
+                <div className="module-placeholder">
+                  <span className="module-placeholder-icon">✦</span>
+                  <h3>{current.title} module</h3>
+                  <p>
+                    Halaman ini sudah tersedia di navigasi workspace.
+                    Fitur operasional dan integrasi database akan dibangun
+                    pada tahap berikutnya.
                   </p>
-                  <small style={{ color: "#8994aa" }}>
-                    Modul ini siap dilanjutkan dengan integrasi database dan fitur operasional.
-                  </small>
                 </div>
               </article>
             </>
           )}
 
           <p className="note">
-            DULSTORE CLOUD | Workspace management system
+            DULSTORE CLOUD <span>•</span> Workspace management system
           </p>
         </div>
       </section>
     </main>
   );
 }
-

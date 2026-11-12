@@ -528,7 +528,7 @@
         recordingStream = null;
 
         $("#dul-recording").style.display = "none";
-        micButton.textContent = "ðŸŽ™";
+        micButton.textContent = "\u{1F399}";
 
         if (audioFile.size > 10 * 1024 * 1024) {
           setStatus("Voice note melebihi batas 10 MB.");
@@ -540,7 +540,7 @@
 
       mediaRecorder.start();
       $("#dul-recording").style.display = "block";
-      micButton.textContent = "â– ";
+      micButton.textContent = "\u25A0";
       setStatus("Tekan tombol rekam lagi untuk berhenti.");
     } catch (error) {
       console.error("Microphone error:", error);
